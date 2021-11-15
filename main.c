@@ -2,13 +2,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define TURN_P1 0
-#define TURN_P2 1
-
 void print_board(char* board_tiles, int turn_no, bool player_turn);
 char get_choice(char* board_tiles);
 bool row(char a, char b, char c);
 bool check_board(char* board_tiles);
+
+#define TURN_P1 0
+#define TURN_P2 1
 
 int main(void) {
     static int turn_no = 1;
