@@ -80,23 +80,18 @@ int check_row_win (char a, char b, char c, int ch, char* board) {
 int check_board_win(int ch, char* board) {
     for (int i = 0; i < 7; i += 3) {
         int h_win = check_row_win(board[i], board[i+1], board[i+2], ch, board);
-        if (h_win) {
-            if (h_win==1) return 1;
-            if (h_win==2) return 2;
-        }
+        if (h_win==1) return 1;
+        if (h_win==2) return 2;
     }
     for (int i = 0; i < 3; ++i) {
         int v_win = check_row_win(board[i], board[i+3], board[i+6], ch, board);
-        if (v_win) {
-            if (v_win==1) return 1;
-            if (v_win==2) return 2;
-        }
+        if (v_win==1) return 1;
+        if (v_win==2) return 2;
     }
-    int d_win = check_row_win(board[0], board[4], board[8], ch, board);
+    for (int i = 0; i < 3 ; i+= 2) {
+        int d_win = check_row_win(board[i], board[4], board[8-i], ch, board);
         if (d_win==1) return 1;
         if (d_win==2) return 2;
-    d_win = check_row_win(board[2], board[4], board[6], ch, board);
-        if (d_win==1) return 1;
-        if (d_win==2) return 2;
+    }
     return 0;
 }
