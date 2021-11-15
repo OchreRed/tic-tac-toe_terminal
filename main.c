@@ -5,177 +5,98 @@
 #define TURN_P1 0
 #define TURN_P2 1
 
-typedef enum TileState { NONE = 0, P1 = 'X', P2 = 'O' } TileState;
-
-typedef struct Tiles {
-    char prints[9];         // What gets printed to the terminal
-    TileState states[9];    // Records if tile is empty, or marked by P1 or P2
-} Tiles;
-
-void tiles_init(struct Tiles* BoardTiles);
-void print_board(struct Tiles* BoardTiles, int turn_no, bool player_turn);
-char get_choice(struct Tiles* BoardTiles);
-void update_tiles(struct Tiles* BoardTiles, int choice, bool player_turn);
-int check_winners(struct Tiles* BoardTiles);
+void print_board(char* board, int turn_no, bool player_turn);
+int get_choice(char* board);
+int check_row_win (char a, char b, char c, int ch, char* board);
+int check_board_win(int ch, char* board);
 
 int main (void) {
     static int turn_no = 1;
     static bool player_turn = TURN_P1;
-    static int choice;
+    static int ch;
     static int win_check;
-
-    static struct Tiles BoardTiles;
-    tiles_init(&BoardTiles);
+    char board[9] = {'a','b','c','d','e','f','g','h','i'};
 
     while (turn_no < 10) {
-        print_board(&BoardTiles, turn_no, player_turn);
-        choice = get_choice(&BoardTiles);
-        update_tiles(&BoardTiles, choice, player_turn);
+        print_board(board, turn_no, player_turn);
+        ch = get_choice(board);
+        board[ch] = (player_turn == TURN_P1)? 'X' : 'O';
         player_turn = !player_turn;
         ++turn_no;
-        win_check = check_winners(&BoardTiles);
+        win_check = check_board_win(ch, board);
         if (win_check != 0) {
-            print_board(&BoardTiles, turn_no, player_turn);
+            print_board(board, turn_no, player_turn);
             printf("Player %d wins!\n\n", win_check);
-            goto gameover;
+            return EXIT_SUCCESS;
         }
     }
-    puts("\nAll tiles have been marked, and with no clear winner determined, the game is a draw.");
-    gameover:
+    puts("\nAll tiles have been marked, and with no clear winner determined, the game is a draw.\n");
     return EXIT_SUCCESS;
 }
 
-void tiles_init(struct Tiles* BoardTiles) {
-    for (int i = 0 ; i < 9 ; ++ i) {
-        BoardTiles->prints[i] = 'a' + i;
-    }
-    for (int i = 0 ; i < 9 ; ++ i) {
-        BoardTiles->states[i] = NONE;
-    }
+void print_board(char* board, int turn_no, bool player_turn) {
+    printf("\nTurn %d - player %d's turn (you are %c):\n", turn_no, (int)player_turn + 1, (player_turn)? 'O' : 'X');
+    printf(" %c | %c | %c\n", board[0], board[1], board[2]);
+      puts("---+---+---");
+    printf(" %c | %c | %c\n", board[3], board[4], board[5]);
+      puts("---+---+---");
+    printf(" %c | %c | %c\n\n", board[6], board[7], board[8]); 
     return;
 }
 
-void print_board(struct Tiles* BoardTiles, int turn_no, bool player_turn) {
-    putchar('\n');
-    printf("Turn %d - player %d's turn.\n", turn_no, (int)player_turn + 1);
-    printf(" %c | %c | %c\n", BoardTiles->prints[0], BoardTiles->prints[1], BoardTiles->prints[2]);
-    printf("---+---+---\n");
-    printf(" %c | %c | %c\n", BoardTiles->prints[3], BoardTiles->prints[4], BoardTiles->prints[5]);
-    printf("---+---+---\n");
-    printf(" %c | %c | %c\n", BoardTiles->prints[6], BoardTiles->prints[7], BoardTiles->prints[8]); 
-    putchar('\n');
-    return;
-}
-
-char get_choice(struct Tiles* BoardTiles) {
+int get_choice(char* board) {
     puts("Input the letter of the spot you want to mark.");
     char buf[3]; 
-    int len;
-    int ch;
+    int c;
 
-    // You can only enter one letter, otherwise it's invalid.
-    // That letter must be between 'a' and 'i'.
     input:
-    len = 0;
-    while ( (ch = getchar()) != '\n') {
-        buf[len] = ch;
+    int len = 0;
+    while ( (c = getchar()) != '\n') {
+        buf[len] = c;
         if (len > 1)
             len = 1;
         ++len;
     }
-    if (len > 1) {
+    if (len > 1 || !(buf[0] >= 'a' && buf[0] <= 'i')) {
         puts("Invalid input. Please try again: ");
         goto input;
-    }
-    if ( !(buf[0] >= 'a' && buf[0] <= 'i') ) { // if not a letter between a and i 
-        puts("Invalid input. Please try again: ");
-        goto input;
-    }
-    
-    int choice = buf[0] - 'a';
-    if (BoardTiles->states[choice] != NONE) {
+    }    
+    int ch = buf[0] - 'a';
+    if (board[ch] == 'X' || board[ch] == 'O') {
         puts("That spot is taken. Please try again: ");
         goto input;
     }
-
-    return choice;
+    return ch;
 }
 
-void update_tiles(struct Tiles* BoardTiles, int choice, bool player_turn) {
-    if (BoardTiles->states[choice] == NONE) {
-        BoardTiles->states[choice] = (player_turn == TURN_P1)? P1 : P2;
-        BoardTiles->prints[choice] = (player_turn == TURN_P1)? 'X' : 'O';
-    } else {
-        fprintf(stderr, "Invalid tile choice in update_tiles.\n");
-        exit(EXIT_FAILURE);
+int check_row_win (char a, char b, char c, int ch, char* board) {
+    if (a==board[ch] && b==board[ch] && c==board[ch]) { 
+        if (board[ch]=='X') return 1;
+        if (board[ch]=='O') return 2;
     }
-    return;
+    return 0;
 }
 
-int check_winners(struct Tiles* BoardTiles) {
-    int p1_count, p2_count;
-    /* The board:
-     *  0 1 2
-     *  3 4 5
-     *  6 7 8
-     */
-    // Check top, middle, and bottom horizontal rows for three in a row.
-    for (int n = 0 ; n < 9 ; n += 3) {
-        p1_count = 0;
-        p2_count = 0;
-        for (int j = 0+n ; j < 3+n ; ++j) {
-            if (BoardTiles->states[j] == P1) 
-                ++p1_count;
-            if (BoardTiles->states[j] == P2)
-                ++p2_count;
+int check_board_win(int ch, char* board) {
+    for (int i = 0; i < 7; i += 3) {
+        int h_win = check_row_win(board[i], board[i+1], board[i+2], ch, board);
+        if (h_win) {
+            if (h_win==1) return 1;
+            if (h_win==2) return 2;
         }
-        if (p1_count > 2) // (yes, this is copy-pasted throughout the function)
-            return 1; // P1 wins 
-        if (p2_count > 2)
-            return 2; // P2 wins
     }
-    // Check left, middle, and right vertical rows.
-    for (int n = 0 ; n < 3 ; ++n) {
-        p1_count = 0;
-        p2_count = 0;
-        for (int i = 0+n ; i < 7+n ; i += 3) {
-            if (BoardTiles->states[i] == P1) 
-                ++p1_count;
-            if (BoardTiles->states[i] == P2)
-                ++p2_count;
+    for (int i = 0; i < 3; ++i) {
+        int v_win = check_row_win(board[i], board[i+3], board[i+6], ch, board);
+        if (v_win) {
+            if (v_win==1) return 1;
+            if (v_win==2) return 2;
         }
-        if (p1_count > 2)
-            return 1; // P1 wins
-        if (p2_count > 2)
-            return 2; // P2 wins
     }
-    // Check top-left to bottom-right diagonal row.
-    p1_count = 0;
-    p2_count = 0;
-    for (int i = 0 ; i < 9 ; i += 4) {
-        if (BoardTiles->states[i] == P1)
-            ++p1_count;
-        if (BoardTiles->states[i] == P2)
-            ++p2_count;
-    }
-    if (p1_count > 2)
-        return 1; // P1 wins
-    if (p2_count > 2)
-        return 2; // P2 wins
-
-    // Check top-right to bottom-left diagonal row.
-    p1_count = 0;
-    p2_count = 0;
-    for (int i = 2 ; i < 7 ; i += 2) {
-        if (BoardTiles->states[i] == P1)
-            ++p1_count;
-        if (BoardTiles->states[i] == P2)
-            ++p2_count;
-    }
-    if (p1_count > 2)
-        return 1; // P1 wins
-    if (p2_count > 2)
-        return 2; // P2 wins
-    
-    return 0; // No winners yet
+    int d_win = check_row_win(board[0], board[4], board[8], ch, board);
+        if (d_win==1) return 1;
+        if (d_win==2) return 2;
+    d_win = check_row_win(board[2], board[4], board[6], ch, board);
+        if (d_win==1) return 1;
+        if (d_win==2) return 2;
+    return 0;
 }
