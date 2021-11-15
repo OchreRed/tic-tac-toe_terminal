@@ -4,7 +4,7 @@
 
 void print_board(char* board_tiles, int turn_no, bool player_turn);
 char get_choice(char* board_tiles);
-bool row(char a, char b, char c);
+bool check_row(char a, char b, char c);
 bool check_board(char* board_tiles);
 
 #define TURN_P1 0
