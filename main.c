@@ -1,83 +1,179 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <ctype.h>
+#include <time.h>
 
-void print_board(char* board_tiles, int turn_no, bool player_turn);
-char get_choice(char* board_tiles);
-bool check_row(char a, char b, char c);
-bool check_board(char* board_tiles);
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define IS_ODD(x) (((x) % (2)) ? (1) : (0))
 
-#define TURN_P1 0
-#define TURN_P2 1
+#define TURN_O 0
+#define TURN_X 1
+
+struct Tiles {
+    char states[9];      // What's on the game board, and what gets printed.
+    int priority_lvls[9];  // The CPU will use this for determining its next move (not implemented).
+};
+
+enum question { WHICH_MODE, WHICH_SPOT };
+
+const char* INVALID = "Invalid input. Please try again: ";
+
+void init(struct Tiles* Board);
+void print_board(struct Tiles* Board, int turn_no, bool mode_cpu);
+int get_choice(struct Tiles* Board, enum question which_q, bool* mode_cpu);
+char input(void);
+int check_row(char a, char b, char c, int ch, struct Tiles* Board);
+int check_won(int ch, struct Tiles* Board);
+int cpu_choice_rand(struct Tiles* Board);
 
 int main(void) {
+    srand(time(0));
+    static struct Tiles Board;
     static int turn_no = 1;
-    static bool player_turn, game_won;
-    static int choice;
-    char board_tiles[9] = {'a','b','c','d','e','f','g','h','i'};
+    static bool mode_cpu;
+    static int ch;
+    static int winner;
+
+    init(&Board);
+    ch = get_choice(&Board, WHICH_MODE, &mode_cpu);
+    puts("\nGAME START!");
     while (turn_no < 10) {
-        print_board(board_tiles, turn_no, player_turn);
-        choice = get_choice(board_tiles);
-        board_tiles[choice] = (player_turn == TURN_P1)? 'X' : 'O';
-        player_turn = !player_turn;
+        if (mode_cpu) {
+            if (IS_ODD(turn_no)) {
+                print_board(&Board, turn_no, mode_cpu);
+                ch = get_choice(&Board, WHICH_SPOT, &mode_cpu);
+            } else {
+                ch = cpu_choice_rand(&Board);
+                printf("CPU choice: spot %c\n", ch+'a');
+            }
+        } else {
+            print_board(&Board, turn_no, mode_cpu);
+            ch = get_choice(&Board, WHICH_SPOT, &mode_cpu);
+        }
+    
+        Board.states[ch] = IS_ODD(turn_no)?'X':'O';
         ++turn_no;
-        game_won = check_board(board_tiles);
-        if (game_won) {
-            print_board(board_tiles, turn_no, player_turn);
-            printf("Player %d wins!\n\n", (int)!player_turn + 1);
+        winner = check_won(ch, &Board);
+        if (winner) {
+            print_board(&Board, turn_no, mode_cpu);
+            printf("Player %d %s wins!\n\n", winner, (mode_cpu && IS_ODD(turn_no))? "(CPU)" : "");
             return EXIT_SUCCESS;
         }
     }
-    puts("All tiles have been marked, and with no clear winner determined, the game is a draw.\n");
+    puts("\nAll tiles have been marked, and with no clear winner determined, the game is a draw.\n");
     return EXIT_SUCCESS;
 }
 
-void print_board(char* board_tiles, int turn_no, bool player_turn) {
-    printf("\nTurn %d - player %d's turn (you are %c):\n", turn_no, (int)player_turn + 1, (player_turn)? 'O' : 'X');
-    printf(" %c | %c | %c\n", board_tiles[0], board_tiles[1], board_tiles[2]);
-    printf("---+---+---\n");
-    printf(" %c | %c | %c\n", board_tiles[3], board_tiles[4], board_tiles[5]);
-    printf("---+---+---\n");
-    printf(" %c | %c | %c\n\n", board_tiles[6], board_tiles[7], board_tiles[8]); 
+void init(struct Tiles* Board) {
+    for (int i = 0; i < 9; ++i)
+        Board->states[i] = 'a' + i;
+    for (int i = 0; i < 9; ++i)
+        Board->priority_lvls[i] = 0;
     return;
 }
 
-char get_choice(char* board_tiles) {
-    puts("Input the letter of the spot you want to mark.");
-    char buf[3]; 
+void print_board(struct Tiles* Board, int turn_no, bool mode_cpu) {
+    if (mode_cpu)
+        printf("\nTurn %d - your turn:\n", turn_no);
+    else
+        printf("\nTurn %d - player %d's turn (you are %c):\n", turn_no, IS_ODD(turn_no)?1:2, IS_ODD(turn_no)?'X':'O'); 
+    printf(" %c | %c | %c\n", Board->states[0], Board->states[1], Board->states[2]);
+      puts("---+---+---");
+    printf(" %c | %c | %c\n", Board->states[3], Board->states[4], Board->states[5]);
+      puts("---+---+---");
+    printf(" %c | %c | %c\n\n", Board->states[6], Board->states[7], Board->states[8]);
+    return;
+}
+
+int get_choice(struct Tiles* Board, enum question which_q, bool* mode_cpu) {
+    int ans = -1;
+    if (which_q == WHICH_MODE) {
+        puts("Do you want to play against the CPU (y/n)?");
+        do {
+            ans = input();
+            ans = tolower(ans);
+            if (ans != 'y' && ans != 'n')
+                puts(INVALID);
+        } while ((ans != 'y' && ans != 'n') || ans == '\n');
+        if (ans == 'y') *mode_cpu = true; // false by default
+
+    } else if (which_q == WHICH_SPOT) {
+        puts("Input the letter of the spot you want to mark: ");
+        do {
+            ans = input();
+            ans = tolower(ans);
+            if (!(ans>='a' && ans <= 'i') || !(ans == Board->states[ans-'a']))
+                puts(INVALID);
+        } while (!(ans>='a' && ans<='i') || !(ans == Board->states[ans-'a']) || ans == '\n');
+        ans -= 'a'; // conversion to integer between 0 and 8
+    }
+    return ans;
+}
+
+// Function that takes input of one character only. Safe from buffer overflow.
+char input(void) {
+    char buf[3];
     int len, c;
-    input:
-    len = 0;
-    while ( (c = getchar()) != '\n') {
-        buf[len] = c;
-        if (len > 1) 
-            len = 1;
-        ++len;
-    }
-    if (len > 1 || !(buf[0] >= 'a' && buf[0] <= 'i') || board_tiles[buf[0]-'a'] != buf[0]) {
-        puts("Invalid input. Please try again: ");
-        goto input;
-    }
-    return buf[0]-'a';
+    do {
+        len = 0;
+        while ( (c = getchar()) != '\n') {
+            buf[len] = c;
+            if (len > 1)
+                len = 1;
+            len++;
+            if (c == EOF)
+                exit(EXIT_SUCCESS);
+        }
+        if (len > 1)
+            puts(INVALID);
+    } while (len > 1);
+    return buf[0];
 }
 
-bool check_row(char a, char b, char c) {
-    return (a == b) && (b == c);
+/* To-do: See if you can combine this with the enemy CPU so you don't have this big thing.
+ * Also, idea: this could check if two contiguous tiles match, and if so, check if three match, 
+ * otherwise return that only two match. */
+int check_row (char a, char b, char c, int ch, struct Tiles* Board) {
+    if (a==Board->states[ch] && b==Board->states[ch] && c==Board->states[ch]) { 
+        if (Board->states[ch]=='X') return 1;
+        if (Board->states[ch]=='O') return 2;
+    }
+    return 0;
 }
 
-bool check_board(char* board_tiles){
-    bool h_win, v_win, d_win;
-    for (int i = 0; i < 7; i+=3) {
-        h_win = check_row(board_tiles[i], board_tiles[i+1], board_tiles[i+2]);
-        if (h_win) return true;
+int check_won(int ch, struct Tiles* Board) {
+    for (int i = 0; i < 7; i += 3) {
+        int h_win = check_row(Board->states[i], Board->states[i+1], Board->states[i+2], ch, Board);
+        if (h_win==1) return 1; // P1 wins
+        if (h_win==2) return 2; // P2 wins
     }
     for (int i = 0; i < 3; ++i) {
-        v_win = check_row(board_tiles[i], board_tiles[i+3], board_tiles[i+6]);
-        if (v_win) return true;
+        int v_win = check_row(Board->states[i], Board->states[i+3], Board->states[i+6], ch, Board);
+        if (v_win==1) return 1;
+        if (v_win==2) return 2;
     }
-    for (int i = 0; i < 3; i+=2) {
-        d_win = check_row(board_tiles[i], board_tiles[4], board_tiles[8-i]);
-        if (d_win) return true;
+    for (int i = 0; i < 3 ; i += 2) {
+        int d_win = check_row(Board->states[i], Board->states[4], Board->states[8-i], ch, Board);
+        if (d_win==1) return 1;
+        if (d_win==2) return 2;
     }
-    return false;
+    return 0; // No winners yet
+}
+
+// Makes an array of the available tiles remaining and randomly chooses one. 
+int cpu_choice_rand(struct Tiles* Board) {
+    char choices[9];
+    int i = 0, j = 0;
+    while (i < 9) {
+        if (Board->states[i] != 'X' && Board->states[i] != 'O') {
+            choices[j++] = Board->states[i];
+        }
+        ++i;
+    }
+    int n = rand() % (j);
+    char ch = choices[n];
+    ch -= 'a';
+    return ch;
 }
